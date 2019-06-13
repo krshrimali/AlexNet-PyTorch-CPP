@@ -8,25 +8,28 @@ struct Net: torch::nn::Module {
     // AlexNet Layer
     Net() {
         // Initialize AlexNet
-        conv1_1 = register_module("conv1_1", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 3, 11).padding(1)));
+        conv1_1 = register_module("conv1_1", torch::nn::Conv2d(torch::nn::Conv2dOptions(1, 10, 11).padding(1)));
         // Maxpool2d Layer
-        conv1_2 = register_module("conv1_2", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 3, 5).padding(2)));
+        conv1_2 = register_module("conv1_2", torch::nn::Conv2d(torch::nn::Conv2dOptions(10, 20, 5).padding(1)));
         // Overlapping Maxpool2d Layer
-        conv1_3 = register_module("conv1_3", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 3, 3).padding(1)));
-        conv1_4 = register_module("conv1_4", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 3, 3).padding(1)));
-        conv1_5 = register_module("conv1_5", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 3, 3).padding(1)));
+        conv1_3 = register_module("conv1_3", torch::nn::Conv2d(torch::nn::Conv2dOptions(20, 30, 3).padding(1)));
+        conv1_4 = register_module("conv1_4", torch::nn::Conv2d(torch::nn::Conv2dOptions(30, 40, 3).padding(1)));
+        conv1_5 = register_module("conv1_5", torch::nn::Conv2d(torch::nn::Conv2dOptions(40, 50, 3).padding(1)));
         // Overlapping Maxpool2d Layer
         // FC1 - FC2- Softmax
-        fc1 = register_module("fc1", torch::nn::Linear(9216, 4096));
-        fc2 = register_module("fc2", torch::nn::Linear(4096, 4096));
+        fc1 = register_module("fc1", torch::nn::Linear(200, 100));
+	fc2 = register_module("fc2", torch::nn::Linear(100, 10));
     }
 
     torch::Tensor forward(torch::Tensor x) {
-        x = torch::max_pool2d(conv1_1->forward(x));
-        x = torch::max_pool2d(conv1_2->forward(x));
-        x = torch::max_pool2d(conv1_5->forward(x));
+        x = torch::max_pool2d(torch::relu(conv1_1->forward(x)), 2);
+        x = torch::max_pool2d(torch::relu(conv1_2->forward(x)), 2);
+	x = torch::relu(conv1_3->forward(x));
+	x = torch::relu(conv1_4->forward(x));
+        x = torch::max_pool2d(torch::relu(conv1_5->forward(x)), 2);
+	x = x.view({-1, 200});
         x = fc1->forward(x);
-        x = fc2->forward(x);
+	x = fc2->forward(x);
         return torch::log_softmax(x, 1);
     }
 
@@ -44,7 +47,7 @@ int main() {
 
     // Create multi-threaded data loader for MNIST data
     auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(
-            std::move(torch::data::datasets::MNIST("../../data").map(torch::data::transforms::Normalize<>(0.13707, 0.3081)).map(
+            std::move(torch::data::datasets::MNIST("../data").map(torch::data::transforms::Normalize<>(0.13707, 0.3081)).map(
                     torch::data::transforms::Stack<>())), 64);
     torch::optim::SGD optimizer(net->parameters(), 0.01); // Learning Rate 0.01
 
